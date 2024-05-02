@@ -1,0 +1,80 @@
+Resources:
+  SMSApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      ApiKeySourceType: HEADER
+      Body:
+        OpenAPI specification: null
+      Description: SMS request/response handler
+      DisableExecuteApiEndpoint: false
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: sms
+  SMSTwilioResource:
+    Type: 'AWS:ApiGateway:Resource'
+    DependsOn:
+      - "SMSApi"
+    Properties:
+      ParentId: !GetAtt 
+        - SMSApi
+        - RootResourceId
+      RestApiId: !Ref SMSApi
+      PathPart: 'twilio' 
+  SMSErrorModel:
+    Type: 'AWS::ApiGateway::Model'
+    DependsOn:
+      - "SMSApi"
+    Properties:
+      ContentType: 'application/json'
+      Description: 'Default error schema model'
+      Name: 'Error'
+      RestApiId: !Ref SMSApi
+      Schema: "{\n  \"$schema\" : \"http://json-schema.org/draft-04/schema#\",\n  \"title\"
+        : \"Error Schema\",\n  \"type\" : \"object\",\n  \"properties\" : {\n    \"message\"
+        : { \"type\" : \"string\" }\n  }\n}"
+  SMSEmptyModel:
+    Type: 'AWS::ApiGateway::Model'
+    DependsOn:
+      - "SMSApi"
+    Properties:
+      ContentType: 'application/json'
+      Description: 'Default error schema model'
+      Name: 'Empty'
+      RestApiId: !Ref SMSApi
+      Schema: "{\n  \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n  \"title\"
+        : \"Empty Schema\",\n  \"type\" : \"object\"\n}"
+  SMSTwilioPOSTMethod:
+    Type: 'AWS::ApiGateway::Method'
+    DependsOn:
+      - "SMSApi"
+      - "SMSResource"
+      - "CommandProcessorLambda"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration: 
+        CacheNamespace: !!Ref SMSResource
+        Credentials: !Ref ApiGatewayRole
+        ContentHandling: CONVERT_TO_TEXT
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        PassthroughBehavior: WHEN_NO_MATCH
+        Type: AWS_PROXY
+        Uri: TODO
+      MethodResponses: 
+        - 
+          ResponseModels:
+            application/json: Empty
+          StatusCode: '200'
+      ResourceId: !Ref SMSResource 
+      RestApiId: !Ref SMSApi
+  SMSLiveStage:
+    Type: AWS::ApiGateway::Stage
+    DependsOn:
+      - SMSApi
+    Properties:
+      RestApiId: !Ref SMSApi
+      StageName: 'live'

@@ -1,0 +1,87 @@
+Resources:
+  TemperatureApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      ApiKeySourceType: HEADER
+      Body:
+        OpenAPI specification: null
+      Description: Temperature data input handler
+      DisableExecuteApiEndpoint: false
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: temperature
+  TemperatureResource:
+    Type: 'AWS:ApiGateway:Resource'
+    DependsOn:
+      - TemperatureApi
+    Properties:
+      ParentId: !GetAtt 
+        - TemperatureApi
+        - RootResourceId
+      RestApiId: !Ref TemperatureApi
+      PathPart: 'temp_humidity' 
+  TemperatureErrorModel:
+    Type: AWS::ApiGateway::Model
+    DependsOn:
+      - TemperatureApi
+    Properties:
+      ContentType: 'application/json'
+      Description: 'Default error schema model'
+      Name: 'Error'
+      RestApiId: !Ref TemperatureApi
+      Schema: "{\n  \"$schema\" : \"http://json-schema.org/draft-04/schema#\",\n  \"title\"
+        : \"Error Schema\",\n  \"type\" : \"object\",\n  \"properties\" : {\n    \"message\"
+        : { \"type\" : \"string\" }\n  }\n}"
+  TemperatureEmptyModel:
+    Type: AWS::ApiGateway::Model
+    DependsOn:
+      - "TemperatureApi"
+    Properties:
+      ContentType: 'application/json'
+      Description: 'Default error schema model'
+      Name: 'Empty'
+      RestApiId: !Ref TemperatureApi
+      Schema: "{\n  \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n  \"title\"
+        : \"Empty Schema\",\n  \"type\" : \"object\"\n}"
+  TemperaturePOSTMethod:
+    Type: AWS::ApiGateway::Method
+    DependsOn:
+      - TemperatureResource
+      - TemperatureEmptyModel
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration: 
+        CacheNamespace: !!Ref TemperatureResource
+        Credentials: !Ref ApiGatewayRole
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseTemplates:
+              application/json: 
+                "{ \n    \"TableName\": \"temp_humidity\",\n    \"Item\": {\n\t
+                \   \"id\": {\n            \"S\": \"$context.requestId\"\n        },\n        \"device_id\":
+                {\n            \"S\": \"$input.path('$.coreid')\"\n        },\n        \"published_at\":
+                {\n            \"S\": \"$input.path('$.published_at')\"\n        },\n        \"temp_f\":
+                {\n            \"N\": \"$input.path('$.data.temp_f')\"\n        },\n        \"temp_c\":
+                {\n            \"N\": \"$input.path('$.data.temp_c')\"\n        },\n        \"humidity\":
+                {\n            \"N\": \"$input.path('$.data.humidity')\"\n        }\n    }\n}"
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        Type: AWS
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:dynamodb:PutItem'
+      MethodResponses: 
+        - 
+          ResponseModels:
+            application/json: Empty
+          StatusCode: '200'
+      ResourceId: !Ref TemperatureResource 
+      RestApiId: !Ref TemperatureApi
+  TemperatureLiveStage:
+    Type: AWS::ApiGateway::Stage
+    DependsOn:
+         - TemperatureApi
+    Properties:
+      RestApiId: !!Ref TemperatureApi
+      StageName: 'live'

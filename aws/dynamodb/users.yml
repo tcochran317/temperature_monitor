@@ -1,5 +1,5 @@
 Resources:
-  DDBTable:
+  UsersTable:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
@@ -62,3 +62,7 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: users
+Outputs:
+  UsersTableARN:
+    Description: "ARN of the users table"
+    Value: !GetAtt UsersTable.Arn

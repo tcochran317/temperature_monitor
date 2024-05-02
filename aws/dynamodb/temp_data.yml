@@ -1,5 +1,5 @@
 Resources:
-  DDBTable:
+  TempDataTable:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
@@ -17,3 +17,7 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: temp_data
+Outputs:
+  TempDataTableARN:
+    Description: "ARN for temp_data table"
+    Value: !GetAtt TempDataTable.Arn

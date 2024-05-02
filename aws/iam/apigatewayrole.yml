@@ -1,0 +1,16 @@
+Resources:
+  ApiGatewayRole:
+    Type: 'AWS:IAM:Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Sid: ''
+        Version: '2012-10-17'
+      Description: Allows API Gateway to write to DynamoDB
+      MaxSessionDuration: 3600
+      Path: /
+      RoleName: APIGatewayRole

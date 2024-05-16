@@ -1,0 +1,10 @@
+Resources:
+  CommandProcessorFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+         - CommandProcessorRole
+    Properties:
+         Code:
+          S3Bucket: tcochran317-lambda
+          S3Key: function/command_processor.zip
+         Role: 

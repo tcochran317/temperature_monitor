@@ -1,0 +1,10 @@
+*.sw?
+.DS_Store
+bin
+coverage
+rdoc
+*.gem
+.bundle
+Gemfile.lock
+pkg/*
+.rvmrc

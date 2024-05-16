@@ -1,0 +1,37 @@
+Resources:
+  DynamoDBTempDataPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: DynamoDB-tempdata
+      - PolicyDocument: 
+          Version: 2012-10-17,
+          Statement:
+            - Effect: Allow,
+              Action:
+                - "dynamodb:ListContributorInsights"
+                - "dynamodb:DescribeReservedCapacityOfferings"
+                - "dynamodb:ListGlobalTables"
+                - "dynamodb:ListTables"
+                - "dynamodb:DescribeReservedCapacity"
+                - "dynamodb:ListBackups"
+                - "dynamodb:PurchaseReservedCapacityOfferings"
+                - "dynamodb:ListImports"
+                - "dynamodb:DescribeLimits"
+                - "dynamodb:DescribeEndpoints"
+                - "dynamodb:ListExports"
+                - "dynamodb:ListStreams"
+              Resource: 
+                - "*"
+            - Effect: Allow,
+              Action: 
+                - "dynamodb:*"
+              Resource: 
+                - !GetAtt TempDataTable.Arn
+                - !GetAtt TempDataTable.StreamArn
+                - !Sub
+                  - "${Arn}/index/*"
+                  - Arn: !!Ref TempDataTable
+      Roles:
+        - !Ref CurrentTempRole
+        - !Ref HeartbeatMonitorRole
+        - !Ref TempMonitorRole

@@ -1,0 +1,36 @@
+Resources:
+  DynamoDBUsersPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: DynamoDB-users
+      - PolicyDocument: 
+          Version: 2012-10-17,
+          Statement:
+            - Effect: Allow,
+              Action:
+                - "dynamodb:ListContributorInsights"
+                - "dynamodb:DescribeReservedCapacityOfferings"
+                - "dynamodb:ListGlobalTables"
+                - "dynamodb:ListTables"
+                - "dynamodb:DescribeReservedCapacity"
+                - "dynamodb:ListBackups"
+                - "dynamodb:PurchaseReservedCapacityOfferings"
+                - "dynamodb:ListImports"
+                - "dynamodb:DescribeLimits"
+                - "dynamodb:DescribeEndpoints"
+                - "dynamodb:ListExports"
+                - "dynamodb:ListStreams"
+              Resource: 
+                - "*"
+            - Effect: Allow,
+              Action: 
+                - "dynamodb:*"
+              Resource: 
+                - !GetAtt UsersTable.Arn
+                - !GetAtt UsersTable.StreamArn
+                - !Sub
+                  - "${Arn}/index/*"
+                  - Arn: !!Ref UsersTable
+      Roles:
+        - !Ref HeartbeatMonitorRole
+        - !Ref TempMonitorRole

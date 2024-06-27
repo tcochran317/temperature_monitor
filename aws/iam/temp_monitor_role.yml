@@ -15,7 +15,5 @@ Resources:
                 Action: 
                   - "logs:CreateLogStream"
                   - "logs:PutLogEvents"
-                Resource: !Sub 
-                  - "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:log-group:/aws/lambda/${Name}"
-                  - Name: !Ref TempMonitorFunction
+                Resource: "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:log-group:/aws/lambda/tempMonitor"
       RoleName: tempMonitorRole

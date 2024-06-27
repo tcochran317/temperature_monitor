@@ -22,7 +22,3 @@ Resources:
       TableClassSummary:
         TableClass: STANDARD
       TableName: inbox
-Outputs:
-  InboxTableARN:
-    Description: "ARN for temp_data table"
-    Value: !GetAtt InboxTable.Arn

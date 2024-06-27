@@ -1,0 +1,13 @@
+Parameters:
+  TwilioAuthToken:
+    Type: String
+    Description: Auth token used by the Twilio client
+  TwilioAccountSid:
+    Type: String
+    Description: Twilio account identifier
+  TwilioPhoneNumber:
+    Type: String
+    Description: SMS phone number
+  DeviceId:
+    Type: String
+    Description: Identifier of the device providing temperature data

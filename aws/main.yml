@@ -1,13 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   Temperature Monitor - root stack. Deploys DynamoDB, SNS, IAM, Lambda,
-  and API Gateway (incl. SES routing) as nested stacks and wires their
-  outputs together. This is a fresh-environment template: purpose-named,
-  least-privilege resources reconciled against the live account's actual
-  behavior (not a lift-and-shift import of live identifiers). See
-  FIXES.md for the full list of findings and README.md for deployment
-  steps and open items that need your input before this is production
-  ready (placeholder tempMonitor schedule, SES activation, etc).
+  API Gateway, and SES routing as nested stacks and wires their
+  outputs together. 
 
 Parameters:
   TemplatesBucket:
@@ -26,7 +21,6 @@ Parameters:
     Description: Version label in the Lambda/layer S3 keys; deploy.sh sets this to a hash of the sources. See nested/lambda.yml.
   DeviceId:
     Type: String
-    Default: '1d003c000947363339343638'
     Description: Identifier of the device providing temperature data.
   TwilioAccountSid:
     Type: String
@@ -38,7 +32,6 @@ Parameters:
     Description: Auth token used by the Twilio client.
   TwilioPhoneNumber:
     Type: String
-    Default: '+12184005435'
     Description: SMS phone number.
   AlertTempF:
     Type: String
@@ -50,11 +43,9 @@ Parameters:
     Description: Cadence for tempMonitor and heartbeatMonitor's schedules - matches the live EventBridge Rule both actually run on. See FIXES.md.
   NotificationsSubscriptionEmail:
     Type: String
-    Default: tcochran317+fmalert@gmail.com
     Description: Email subscribed to the freezer_monitor SNS topic.
   IncomingEmailRecipient:
     Type: String
-    Default: freezer_monitor@tcochran317.com
     Description: Recipient address SES routes to emailProcessor. Requires a verified SES identity for the domain (not managed by this template).
 
 Resources:

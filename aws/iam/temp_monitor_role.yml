@@ -1,19 +1,46 @@
-Resources:
-  TempMonitorRole:
-    Type: 'AWS:IAM:Role'
-    Properties:
-      Description: Execution role for the tempMonitor function
-      MaxSessionDuration: 3600
-      Policies: 
-        - PolicyDocument: 
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: "logs:CreateLogGroup"
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:*"
-              - Effect: Allow
-                Action: 
-                  - "logs:CreateLogStream"
-                  - "logs:PutLogEvents"
-                Resource: "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:log-group:/aws/lambda/tempMonitor"
-      RoleName: tempMonitorRole
+TempMonitorRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: tempMonitorRole
+    Description: Execution role for the tempMonitor function
+    MaxSessionDuration: 3600
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+    Policies:
+      - PolicyName: tempMonitorLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'logs:CreateLogGroup'
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/tempMonitor:*'
+      - PolicyName: readTempHumidityAndUsers
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:GetItem'
+                - 'dynamodb:Query'
+                - 'dynamodb:Scan'
+              Resource:
+                - !Ref TempHumidityTableArn
+                - !Ref UsersTableArn
+                - !Sub '${UsersTableArn}/index/*'
+      - PolicyName: writeOutbox
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'dynamodb:PutItem'
+              Resource: !Ref OutboxTableArn

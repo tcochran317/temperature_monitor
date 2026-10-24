@@ -27,7 +27,6 @@ def lambda_handler(event:, context:)
         )
         temp_alert_users.items.each do |user|
             if user['active'] == 'Y'
-                puts user['user_id']
                 dynamodb.put_item({table_name: 'outbox', item: {
                     message_id: SecureRandom.uuid,
                     user_id: user['user_id'],

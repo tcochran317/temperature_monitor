@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+
+Parameters:
+  EmailProcessorFunctionArn:
+    Type: String
+  EmailProcessorFunctionName:
+    Type: String
+  IncomingEmailRecipient:
+    Type: String
+    Description: Recipient address SES routes to emailProcessor. Live value shown as default - requires the corresponding domain/address to already be a verified SES identity (not managed by this template; see README.md).
+
+Resources:
+  # TODO: creating this rule set does NOT make it the account's ACTIVE
+  # receipt rule set - CloudFormation has no property for that on
+  # AWS::SES::ReceiptRuleSet. After deploying, run:
+  #   aws ses set-active-receipt-rule-set --rule-set-name temperature-monitor-inbound
+  # (or add a custom resource that calls SetActiveReceiptRuleSet). Also
+  # out of scope here entirely: SES domain/address identity verification
+  # (DKIM, MX records) for whatever domain IncomingEmailRecipient uses -
+  # that's external DNS configuration, not something this template can
+  # create.
+  IncomingEmailRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Properties:
+      RuleSetName: temperature-monitor-inbound
+
+  IncomingEmailRule:
+    Type: AWS::SES::ReceiptRule
+    DependsOn:
+      - IncomingEmailRuleSet
+    Properties:
+      RuleSetName: !Ref IncomingEmailRuleSet
+      Rule:
+        Name: commands
+        Enabled: true
+        TlsPolicy: Optional
+        ScanEnabled: true
+        Recipients:
+          - !Ref IncomingEmailRecipient
+        Actions:
+          - LambdaAction:
+              FunctionArn: !Ref EmailProcessorFunctionArn
+              InvocationType: Event
+
+  EmailProcessorInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EmailProcessorFunctionName
+      Action: lambda:InvokeFunction
+      Principal: ses.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${IncomingEmailRuleSet}:receipt-rule/commands'

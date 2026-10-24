@@ -1,80 +1,113 @@
-Resources:
-  SMSApi:
-    Type: 'AWS::ApiGateway::RestApi'
-    Properties:
-      ApiKeySourceType: HEADER
-      Body:
-        OpenAPI specification: null
-      Description: SMS request/response handler
-      DisableExecuteApiEndpoint: false
-      EndpointConfiguration:
-        Types:
-          - REGIONAL
-      Name: sms
-  SMSTwilioResource:
-    Type: 'AWS:ApiGateway:Resource'
-    DependsOn:
-      - "SMSApi"
-    Properties:
-      ParentId: !GetAtt 
-        - SMSApi
-        - RootResourceId
-      RestApiId: !Ref SMSApi
-      PathPart: 'twilio' 
-  SMSErrorModel:
-    Type: 'AWS::ApiGateway::Model'
-    DependsOn:
-      - "SMSApi"
-    Properties:
-      ContentType: 'application/json'
-      Description: 'Default error schema model'
-      Name: 'Error'
-      RestApiId: !Ref SMSApi
-      Schema: "{\n  \"$schema\" : \"http://json-schema.org/draft-04/schema#\",\n  \"title\"
-        : \"Error Schema\",\n  \"type\" : \"object\",\n  \"properties\" : {\n    \"message\"
-        : { \"type\" : \"string\" }\n  }\n}"
-  SMSEmptyModel:
-    Type: 'AWS::ApiGateway::Model'
-    DependsOn:
-      - "SMSApi"
-    Properties:
-      ContentType: 'application/json'
-      Description: 'Default error schema model'
-      Name: 'Empty'
-      RestApiId: !Ref SMSApi
-      Schema: "{\n  \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n  \"title\"
-        : \"Empty Schema\",\n  \"type\" : \"object\"\n}"
-  SMSTwilioPOSTMethod:
-    Type: 'AWS::ApiGateway::Method'
-    DependsOn:
-      - "SMSApi"
-      - "SMSResource"
-      - "CommandProcessorLambda"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: NONE
-      HttpMethod: POST
-      Integration: 
-        CacheNamespace: !!Ref SMSResource
-        Credentials: !Ref ApiGatewayRole
-        ContentHandling: CONVERT_TO_TEXT
-        IntegrationHttpMethod: POST
-        IntegrationResponses:
-          - StatusCode: '200'
-        PassthroughBehavior: WHEN_NO_MATCH
-        Type: AWS_PROXY
-        Uri: TODO
-      MethodResponses: 
-        - 
-          ResponseModels:
-            application/json: Empty
-          StatusCode: '200'
-      ResourceId: !Ref SMSResource 
-      RestApiId: !Ref SMSApi
-  SMSLiveStage:
-    Type: AWS::ApiGateway::Stage
-    DependsOn:
-      - SMSApi
-    Properties:
-      RestApiId: !Ref SMSApi
-      StageName: 'live'
+SMSApi:
+  Type: AWS::ApiGateway::RestApi
+  Properties:
+    Name: sms
+    Description: SMS response handler
+    ApiKeySourceType: HEADER
+    DisableExecuteApiEndpoint: false
+    EndpointConfiguration:
+      Types:
+        - REGIONAL
+
+SMSTwilioResource:
+  Type: AWS::ApiGateway::Resource
+  DependsOn:
+    - SMSApi
+  Properties:
+    RestApiId: !Ref SMSApi
+    ParentId: !GetAtt SMSApi.RootResourceId
+    PathPart: twilio
+
+SMSErrorModel:
+  Type: AWS::ApiGateway::Model
+  DependsOn:
+    - SMSApi
+  Properties:
+    RestApiId: !Ref SMSApi
+    Name: Error
+    ContentType: application/json
+    Description: 'Default error schema model'
+    Schema: |
+      {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Error Schema",
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" }
+        }
+      }
+
+SMSEmptyModel:
+  Type: AWS::ApiGateway::Model
+  DependsOn:
+    - SMSApi
+  Properties:
+    RestApiId: !Ref SMSApi
+    Name: Empty
+    ContentType: application/json
+    Description: 'Default empty schema model'
+    Schema: |
+      {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Empty Schema",
+        "type": "object"
+      }
+
+SMSTwilioPOSTMethod:
+  Type: AWS::ApiGateway::Method
+  DependsOn:
+    - SMSApi
+    - SMSTwilioResource
+  Properties:
+    RestApiId: !Ref SMSApi
+    ResourceId: !Ref SMSTwilioResource
+    HttpMethod: POST
+    AuthorizationType: NONE
+    ApiKeyRequired: false
+    Integration:
+      Type: AWS_PROXY
+      IntegrationHttpMethod: POST
+      Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SMSProcessorFunctionArn}/invocations'
+      Credentials: !Ref ApiGatewayRoleArn
+      ContentHandling: CONVERT_TO_TEXT
+      CacheNamespace: !Ref SMSTwilioResource
+      PassthroughBehavior: WHEN_NO_MATCH
+      IntegrationResponses:
+        - StatusCode: '200'
+    MethodResponses:
+      - StatusCode: '200'
+        ResponseModels:
+          application/json: Empty
+
+SMSProcessorInvokePermission:
+  Type: AWS::Lambda::Permission
+  Properties:
+    FunctionName: !Ref SMSProcessorFunctionName
+    Action: lambda:InvokeFunction
+    Principal: apigateway.amazonaws.com
+    SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SMSApi}/*/POST/twilio'
+
+SMSDeployment:
+  Type: AWS::ApiGateway::Deployment
+  DependsOn:
+    - SMSTwilioPOSTMethod
+  Properties:
+    RestApiId: !Ref SMSApi
+
+SMSLiveStage:
+  Type: AWS::ApiGateway::Stage
+  DependsOn:
+    - SMSApi
+    - ApiGatewayAccount
+  Properties:
+    RestApiId: !Ref SMSApi
+    DeploymentId: !Ref SMSDeployment
+    StageName: live
+    MethodSettings:
+      - ResourcePath: '/*'
+        HttpMethod: '*'
+        LoggingLevel: INFO
+        DataTraceEnabled: true
+        MetricsEnabled: false
+        ThrottlingBurstLimit: 5000
+        ThrottlingRateLimit: 10000

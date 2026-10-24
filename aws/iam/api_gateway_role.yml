@@ -1,0 +1,22 @@
+ApiGatewayRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: TemperatureMonitorApiGatewayRole
+    Description: Allows API Gateway to write directly to DynamoDB (temperature ingest)
+    MaxSessionDuration: 3600
+    Path: /
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: apigateway.amazonaws.com
+          Action: sts:AssumeRole
+    Policies:
+      - PolicyName: PutItemOnly
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'dynamodb:PutItem'
+              Resource: !Ref TempHumidityTableArn

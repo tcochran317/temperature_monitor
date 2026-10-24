@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Temperature Monitor - IAM execution roles, scoped to least privilege
+  based on what each function's live event source mappings, SES rule,
+  and API Gateway integrations actually require (confirmed via the live
+  account's IAM policy grants, not assumed) - not a port of the live
+  roles' actual (over-permissive) grants. See FIXES.md for the specific
+  over-grants found live (e.g. currentTemp's role currently has
+  AmazonSNSFullAccess, AmazonEventBridgeFullAccess, and account-wide
+  dynamodb:* via a custom "DynamoDB-all" policy, none of which its
+  function needs) that are intentionally NOT replicated here.
+
+  Also new vs. the repo: a dedicated SMSProcessorRole (live,
+  smsProcessor currently runs on a *borrowed* tempMonitor role with
+  no role of its own) and an ApiGatewayLoggingRole + TempMonitorScheduler
+  role (live objects with no purpose-named equivalents anywhere in the
+  repo at all).
+
+Parameters:
+  TempHumidityTableArn:
+    Type: String
+  UsersTableArn:
+    Type: String
+  InboxTableArn:
+    Type: String
+  InboxTableStreamArn:
+    Type: String
+  OutboxTableArn:
+    Type: String
+  OutboxTableStreamArn:
+    Type: String
+  NotificationsTopicArn:
+    Type: String
+
+Resources:
+
+  # ===========================================================================
+  # API Gateway roles
+  # ===========================================================================
+
+  # Used as the Credentials role on both APIs' direct-to-DynamoDB
+  # integrations. Scoped to exactly PutItem on the two
+  # tables those integrations write to.
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./api_gateway_role.yml
+
+  # Used as the account-level "CloudWatch Logs
+  # role ARN" API Gateway setting (see AWS::ApiGateway::Account in
+  # nested/api-gateway.yml) - NOT the same thing as the Credentials role
+  # above. NOTE: this is an account-level singleton setting; if your
+  # account already has one configured, review before deploying this
+  # stack a second time in the same account/region.
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./api_gateway_logging_role.yml
+
+  # ===========================================================================
+  # Lambda execution roles
+  # ===========================================================================
+
+  # Execution role for the currentTemp Lambda. Needs the standard DynamoDB-Streams
+  # read actions for the function to actually receive stream records (ListStreams has no
+  # resource-level permissions support, hence the separate Resource: '*'
+  # statement).
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./current_temp_role.yml
+
+  # Execution role for the emailProcessor Lambda
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./email_processor_role.yml
+
+  # Execution role for the smsProcessor Lambda
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./sms_processor_role.yml
+
+
+  # Execution role for the sendEmail Lambda
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./send_email_role.yml
+
+  # Execution role for the sendSms Lambda
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./send_sms_role.yml
+
+  # Execution role for the tempMonitor Lambda
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./temp_monitor_role.yml
+
+  # Execution role for the heartbeatMonitor Lambda
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./heartbeat_monitor_role.yml
+
+  # ===========================================================================
+  # EventBridge Scheduler roles
+  # ===========================================================================
+
+  # Allows the scheduler to execute the tempMonitor function
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./temp_monitor_scheduler_role.yml
+
+  # Allows the scheduler to execute the heartbeatMonitor function
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./heartbeat_monitor_scheduler_role.yml
+
+Outputs:
+  ApiGatewayRoleArn:
+    Value: !GetAtt ApiGatewayRole.Arn
+  ApiGatewayLoggingRoleArn:
+    Value: !GetAtt ApiGatewayLoggingRole.Arn
+  CurrentTempRoleArn:
+    Value: !GetAtt CurrentTempRole.Arn
+  EmailProcessorRoleArn:
+    Value: !GetAtt EmailProcessorRole.Arn
+  SMSProcessorRoleArn:
+    Value: !GetAtt SMSProcessorRole.Arn
+  SendEmailRoleArn:
+    Value: !GetAtt SendEmailRole.Arn
+  SendSMSRoleArn:
+    Value: !GetAtt SendSMSRole.Arn
+  TempMonitorRoleArn:
+    Value: !GetAtt TempMonitorRole.Arn
+  HeartbeatMonitorRoleArn:
+    Value: !GetAtt HeartbeatMonitorRole.Arn
+  TempMonitorSchedulerRoleArn:
+    Value: !GetAtt TempMonitorSchedulerRole.Arn
+  HeartbeatMonitorSchedulerRoleArn:
+    Value: !GetAtt HeartbeatMonitorSchedulerRole.Arn

@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Temperature Monitor - Lambda functions, Twilio layer, DynamoDB Stream
+  event source mappings, and the tempMonitor/heartbeatMonitor schedules.
+
+Parameters:
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket holding the Lambda deployment packages and the Twilio layer zip.
+  CodeVersion:
+    Type: String
+    Description: >
+      Version label embedded in every Lambda/layer S3 key
+      (functions/<CodeVersion>/x.zip, layers/<CodeVersion>/twilio.zip).
+      CloudFormation only redeploys function code or publishes a new layer
+      version when these keys change, so deploy.sh sets this to a hash of
+      the sources. Re-uploading to an unchanged key would silently deploy
+      nothing.
+  DeviceId:
+    Type: String
+    Default: '1d003c000947363339343638'
+    Description: Identifier of the device providing temperature data (live value shown as default).
+  TwilioAccountSid:
+    Type: String
+    NoEcho: true
+    Description: Twilio account identifier.
+  TwilioAuthToken:
+    Type: String
+    NoEcho: true
+    Description: Auth token used by the Twilio client.
+  TwilioPhoneNumber:
+    Type: String
+    Default: '+12184005435'
+    Description: SMS phone number (live value shown as default).
+  AlertTempF:
+    Type: String
+    Default: '-5'
+    Description: Temperature threshold (F) above which tempMonitor raises an alert (live value).
+  MonitorScheduleExpression:
+    Type: String
+    Default: 'rate(15 minutes)'
+    Description: >
+      Cadence for both TempMonitorSchedule and HeartbeatMonitorSchedule
+      below. 
+  CurrentTempRoleArn:
+    Type: String
+  EmailProcessorRoleArn:
+    Type: String
+  SMSProcessorRoleArn:
+    Type: String
+  SendEmailRoleArn:
+    Type: String
+  SendSMSRoleArn:
+    Type: String
+  TempMonitorRoleArn:
+    Type: String
+  HeartbeatMonitorRoleArn:
+    Type: String
+  TempMonitorSchedulerRoleArn:
+    Type: String
+  HeartbeatMonitorSchedulerRoleArn:
+    Type: String
+  InboxTableStreamArn:
+    Type: String
+  OutboxTableStreamArn:
+    Type: String
+  NotificationsTopicArn:
+    Type: String
+
+Resources:
+
+  # Layer that provides the Twilio client gem
+  TwilioClientLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: Twilio
+      Description: 'Dependencies for Twilio'
+      CompatibleRuntimes:
+        - ruby3.4
+      CompatibleArchitectures:
+        - x86_64
+        - arm64
+      Content:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Sub 'layers/${CodeVersion}/twilio.zip'
+
+  # Handles request for current temperature Triggered by the inbox stream 
+  # (filtered to "current temp" style messages). 
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./current_temp_function.yml
+
+  # Handles input received via email. Invoked directly by SES on inbound 
+  # mail. Writes the inbound message into inbox.
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./email_processor_function.yml
+
+  # Handles input received via SMS. Invoked by HTTP webhook via API Gateway.
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./sms_processor_function.yml
+
+  # Handles delivering alert/reply messages via email. Triggered by the
+  # outbox stream (no filter).
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./send_email_function.yml
+
+  # Handles sending alert/reply messages via SMS. Triggered by the outbox 
+  # stream (no filter).
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./send_sms_function.yml
+
+  # Function that monitors temperature and send an alert if ALERT_TEMP
+  # is exceeded.  Triggered by a scheduler rule.
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./temp_monitor_function.yml
+
+  # Function that monitors incoming temperature data and sends an alert if no 
+  # new readings have been received in the last hour.  Triggered by scheduler
+  # rule.
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./heartbeat_monitor_function.yml
+
+Outputs:
+  SMSProcessorFunctionArn:
+    Value: !GetAtt SMSProcessorFunction.Arn
+  SMSProcessorFunctionName:
+    Value: !Ref SMSProcessorFunction
+  EmailProcessorFunctionArn:
+    Value: !GetAtt EmailProcessorFunction.Arn
+  EmailProcessorFunctionName:
+    Value: !Ref EmailProcessorFunction

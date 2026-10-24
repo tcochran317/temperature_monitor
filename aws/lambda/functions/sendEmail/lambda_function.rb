@@ -1,21 +1,22 @@
 require 'json'
 require 'rubygems'
 require 'aws-sdk-dynamodb'
-require 'aws-sdk-sns'
+require 'aws-sdk-ses'
 
 def lambda_handler(event:, context:)
 
     dynamodb = Aws::DynamoDB::Client.new
-    sns = Aws::SNS::Client.new
+    ses = Aws::SES::Client.new
 
-    messages=[]
+    messages=Hash.new{ |h, k| h[k] = [] }
+
     puts event
     event['Records'].each do |record|
         data = record['dynamodb']['NewImage']
         keys = record['dynamodb']['Keys']
 
 
-        dynamodb.update_item({table_name: 'outbox',
+        dynamodb.update_item({table_name: 'message_sent',
             key: {
                 message_id: keys['message_id']['S'],
                 created_at: keys['created_at']['S']
@@ -26,9 +27,25 @@ def lambda_handler(event:, context:)
             }
         })
 
-        messages << data['message_body']['S']
+        messages[data['user_id']['S']] << data['message_body']['S']
     end
 
-   # TODO: SNS ARN to environment variable
-   sns.publish(topic_arn: 'arn:aws:sns:us-west-2:899670752587:freezer_monitor', message: messages.join('\n'))
+    messages.each do |to_addr, message_body|
+        ses.send_email({
+            destination: {
+                to_addresses: [to_addr]
+            },
+            message: {
+                body: {
+                    text: {
+                        data: message_body.join('\n')
+                    }
+                },
+                subject: {
+                    data: 'Monitor alert'
+                }
+            },
+            source: ENV['MONITOR_EMAIL_ADDRESS']
+        })
+    end
 end

@@ -1,0 +1,17 @@
+ApiGatewayLoggingRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: TemperatureMonitorApiGatewayLoggingRole
+    Description: Allows API Gateway to push execution/access logs to CloudWatch Logs
+    MaxSessionDuration: 3600
+    Path: /
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Sid: ''
+          Effect: Allow
+          Principal:
+            Service: apigateway.amazonaws.com
+          Action: sts:AssumeRole
+    ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs

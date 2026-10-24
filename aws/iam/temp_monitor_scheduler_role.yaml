@@ -1,0 +1,25 @@
+TempMonitorSchedulerRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: temperatureMonitorTempMonitorSchedulerRole
+    Description: Allows EventBridge Scheduler to invoke tempMonitor
+    MaxSessionDuration: 3600
+    Path: /
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: scheduler.amazonaws.com
+          Action: sts:AssumeRole
+          Condition:
+            StringEquals:
+              'aws:SourceAccount': !Ref 'AWS::AccountId'
+    Policies:
+      - PolicyName: invokeTempMonitor
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'lambda:InvokeFunction'
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:tempMonitor'

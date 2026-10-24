@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Temperature Monitor - API Gateway REST APIs, and account-level logging
+  config.
+
+Parameters:
+  ApiGatewayRoleArn:
+    Type: String
+  ApiGatewayLoggingRoleArn:
+    Type: String
+    Description: 'Used for the account-level API Gateway CloudWatch Logs role setting - this is a per-account/region singleton, see the TODO on ApiGatewayAccount below.'
+  SMSProcessorFunctionArn:
+    Type: String
+  SMSProcessorFunctionName:
+    Type: String
+  EmailProcessorFunctionArn:
+    Type: String
+  EmailProcessorFunctionName:
+    Type: String
+  IncomingEmailRecipient:
+    Type: String
+    Description: Recipient address SES routes to emailProcessor. Live value shown as default - requires the corresponding domain/address to already be a verified SES identity (not managed by this template; see README.md).
+
+Resources:
+
+  # ===========================================================================
+  # Account-level API Gateway settings
+  # ===========================================================================
+
+  # AWS::ApiGateway::Account is a per-account/region SINGLETON setting, not 
+  # a resource you can have more than one of. If this AWS account already 
+  # has a CloudWatch role configured for API Gateway, deploying this 
+  # resource will overwrite that account-level setting. Fine for a 
+  # genuinely fresh account; review before deploying into an account that
+  # already has API Gateway logging configured some other way.
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !Ref ApiGatewayLoggingRoleArn
+
+  # ===========================================================================
+  # API for accepting temperature data via HTTP webhook (POST)
+  # ===========================================================================
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./temperature_api.yml
+
+  # ===========================================================================
+  # API for accepting user input via SMS provider webook. Includes an endpoint
+  # for Twilio.
+  # ===========================================================================
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./sms_api.yml
+
+
+Outputs:
+  TemperatureApiEndpoint:
+    Value: !Sub 'https://${TemperatureApi}.execute-api.${AWS::Region}.amazonaws.com/live/temp_humidity'
+  SMSApiEndpoint:
+    Value: !Sub 'https://${SMSApi}.execute-api.${AWS::Region}.amazonaws.com/live/twilio'
+  IncomingEmailRuleSetName:
+    Value: !Ref IncomingEmailRuleSet

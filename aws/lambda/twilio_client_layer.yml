@@ -1,12 +1,15 @@
-Resources:
   TwilioClientLayer:
     Type: AWS::Lambda::LayerVersion
     Properties:
+      LayerName: Twilio
+      Description: 'Dependencies for Twilio'
       CompatibleRuntimes:
         - ruby2.7
         - ruby3.3
+        - ruby3.4
+      CompatibleArchitectures:
+        - x86_64
+        - arm64
       Content:
-        S3Bucket: tcochran317-lambda
-        S3Key: layers/twilio.zip
-      Description: 'Twilio client gem'
-      LayerName: 'Twilio'
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Sub 'layers/${CodeVersion}/twilio.zip'

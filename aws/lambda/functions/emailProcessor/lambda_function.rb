@@ -3,7 +3,6 @@ require 'aws-sdk-dynamodb'
 
 def lambda_handler(event:, context:)
     params = {}
-    puts event
 
     event['Records'].each do |record|
         mail = record['ses']['mail']

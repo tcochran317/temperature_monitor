@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Temperature Monitor - SNS topics.
+
+Resources:
+
+  # Temperature monitor notifications topic
+  NotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: temp_monitor
+      DisplayName: 'Temperature Monitor Notifications'
+
+Outputs:
+  NotificationsTopicArn:
+    Value: !Ref NotificationsTopic

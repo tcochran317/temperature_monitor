@@ -1,19 +1,33 @@
-Resources:
-  SMSProcessorRole:
-    Type: 'AWS:IAM:Role'
-    Properties:
-      Description: Execution role for the smsProcessor function
-      MaxSessionDuration: 3600
-      Policies: 
-        - PolicyDocument: 
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: "logs:CreateLogGroup"
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:*"
-              - Effect: Allow
-                Action: 
-                  - "logs:CreateLogStream"
-                  - "logs:PutLogEvents"
-                Resource: "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:log-group:/aws/lambda/smsProcessor"
-      RoleName: smsProcessorRole
+SMSProcessorRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: smsProcessorRole
+    Description: Execution role for the smsProcessor function (dedicated - previously shared tempMonitor's role live)
+    MaxSessionDuration: 3600
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+    Policies:
+      - PolicyName: smsProcessorLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'logs:CreateLogGroup'
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/smsProcessor:*'
+      - PolicyName: writeInbox
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'dynamodb:PutItem'
+              Resource: !Ref InboxTableArn

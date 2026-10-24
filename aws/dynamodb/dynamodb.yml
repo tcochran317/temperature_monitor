@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Temperature Monitor - DynamoDB tables.
+
+Resources:
+
+  # Temperature data table
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./temp_data.yml
+
+  # User table
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./users.yml
+
+  # Message inbox table
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./inbox.yml
+
+  # Message outbox table
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: ./outbox.yml
+
+Outputs:
+  TempDataTableName:
+    Value: !Ref TempDataTable
+  TempDataTableArn:
+    Value: !GetAtt TempDataTable.Arn
+  UsersTableName:
+    Value: !Ref UsersTable
+  UsersTableArn:
+    Value: !GetAtt UsersTable.Arn
+  InboxTableName:
+    Value: !Ref InboxTable
+  InboxTableArn:
+    Value: !GetAtt InboxTable.Arn
+  InboxTableStreamArn:
+    Value: !GetAtt InboxTable.StreamArn
+  OutboxTableName:
+    Value: !Ref OutboxTable
+  OutboxTableArn:
+    Value: !GetAtt OutboxTable.Arn
+  OutboxTableStreamArn:
+    Value: !GetAtt OutboxTable.StreamArn

@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Temperature Monitor - root stack. Deploys DynamoDB, SNS, IAM, Lambda,
+  and API Gateway (incl. SES routing) as nested stacks and wires their
+  outputs together. This is a fresh-environment template: purpose-named,
+  least-privilege resources reconciled against the live account's actual
+  behavior (not a lift-and-shift import of live identifiers). See
+  FIXES.md for the full list of findings and README.md for deployment
+  steps and open items that need your input before this is production
+  ready (placeholder tempMonitor schedule, SES activation, etc).
+
+Parameters:
+  TemplatesBucket:
+    Type: String
+    Description: S3 bucket where the nested/*.yml templates in this package have been uploaded.
+  TemplatesPrefix:
+    Type: String
+    Default: temperature-monitor
+    Description: Key prefix under TemplatesBucket where nested/*.yml were uploaded.
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket holding the Lambda deployment packages and the Twilio layer zip.
+  CodeVersion:
+    Type: String
+    Default: latest
+    Description: Version label in the Lambda/layer S3 keys; deploy.sh sets this to a hash of the sources. See nested/lambda.yml.
+  DeviceId:
+    Type: String
+    Default: '1d003c000947363339343638'
+    Description: Identifier of the device providing temperature data.
+  TwilioAccountSid:
+    Type: String
+    NoEcho: true
+    Description: Twilio account identifier.
+  TwilioAuthToken:
+    Type: String
+    NoEcho: true
+    Description: Auth token used by the Twilio client.
+  TwilioPhoneNumber:
+    Type: String
+    Default: '+12184005435'
+    Description: SMS phone number.
+  AlertTempF:
+    Type: String
+    Default: '-5'
+    Description: Temperature threshold (F) above which tempMonitor raises an alert.
+  MonitorScheduleExpression:
+    Type: String
+    Default: 'rate(15 minutes)'
+    Description: Cadence for tempMonitor and heartbeatMonitor's schedules - matches the live EventBridge Rule both actually run on. See FIXES.md.
+  NotificationsSubscriptionEmail:
+    Type: String
+    Default: tcochran317+fmalert@gmail.com
+    Description: Email subscribed to the freezer_monitor SNS topic.
+  IncomingEmailRecipient:
+    Type: String
+    Default: freezer_monitor@tcochran317.com
+    Description: Recipient address SES routes to emailProcessor. Requires a verified SES identity for the domain (not managed by this template).
+
+Resources:
+
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: './dynamodb/dynamodb.yml'
+
+  SNSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./sns/sns.yml
+      Parameters:
+        NotificationsSubscriptionEmail: !Ref NotificationsSubscriptionEmail
+
+  IAMStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - DynamoDBStack
+      - SNSStack
+    Properties:
+      TemplateURL: ./iam/iam.yml
+      Parameters:
+        TempHumidityTableArn: !GetAtt DynamoDBStack.Outputs.TempHumidityTableArn
+        UsersTableArn: !GetAtt DynamoDBStack.Outputs.UsersTableArn
+        InboxTableArn: !GetAtt DynamoDBStack.Outputs.InboxTableArn
+        InboxTableStreamArn: !GetAtt DynamoDBStack.Outputs.InboxTableStreamArn
+        OutboxTableArn: !GetAtt DynamoDBStack.Outputs.OutboxTableArn
+        OutboxTableStreamArn: !GetAtt DynamoDBStack.Outputs.OutboxTableStreamArn
+        NotificationsTopicArn: !GetAtt SNSStack.Outputs.NotificationsTopicArn
+
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - IAMStack
+      - DynamoDBStack
+      - SNSStack
+    Properties:
+      TemplateURL: ./lambda/lambda.yml
+      Parameters:
+        LambdaCodeBucket: !Ref LambdaCodeBucket
+        CodeVersion: !Ref CodeVersion
+        DeviceId: !Ref DeviceId
+        TwilioAccountSid: !Ref TwilioAccountSid
+        TwilioAuthToken: !Ref TwilioAuthToken
+        TwilioPhoneNumber: !Ref TwilioPhoneNumber
+        AlertTempF: !Ref AlertTempF
+        MonitorScheduleExpression: !Ref MonitorScheduleExpression
+        CurrentTempRoleArn: !GetAtt IAMStack.Outputs.CurrentTempRoleArn
+        EmailProcessorRoleArn: !GetAtt IAMStack.Outputs.EmailProcessorRoleArn
+        SMSProcessorRoleArn: !GetAtt IAMStack.Outputs.SMSProcessorRoleArn
+        SendEmailRoleArn: !GetAtt IAMStack.Outputs.SendEmailRoleArn
+        SendSMSRoleArn: !GetAtt IAMStack.Outputs.SendSMSRoleArn
+        TempMonitorRoleArn: !GetAtt IAMStack.Outputs.TempMonitorRoleArn
+        HeartbeatMonitorRoleArn: !GetAtt IAMStack.Outputs.HeartbeatMonitorRoleArn
+        TempMonitorSchedulerRoleArn: !GetAtt IAMStack.Outputs.TempMonitorSchedulerRoleArn
+        HeartbeatMonitorSchedulerRoleArn: !GetAtt IAMStack.Outputs.HeartbeatMonitorSchedulerRoleArn
+        InboxTableStreamArn: !GetAtt DynamoDBStack.Outputs.InboxTableStreamArn
+        OutboxTableStreamArn: !GetAtt DynamoDBStack.Outputs.OutboxTableStreamArn
+        NotificationsTopicArn: !GetAtt SNSStack.Outputs.NotificationsTopicArn
+
+  ApiGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - IAMStack
+      - LambdaStack
+    Properties:
+      TemplateURL: ./api_gateway/api_gateway.yml
+      Parameters:
+        ApiGatewayRoleArn: !GetAtt IAMStack.Outputs.ApiGatewayRoleArn
+        ApiGatewayLoggingRoleArn: !GetAtt IAMStack.Outputs.ApiGatewayLoggingRoleArn
+        SMSProcessorFunctionArn: !GetAtt LambdaStack.Outputs.SMSProcessorFunctionArn
+        SMSProcessorFunctionName: !GetAtt LambdaStack.Outputs.SMSProcessorFunctionName
+        EmailProcessorFunctionArn: !GetAtt LambdaStack.Outputs.EmailProcessorFunctionArn
+        EmailProcessorFunctionName: !GetAtt LambdaStack.Outputs.EmailProcessorFunctionName
+        IncomingEmailRecipient: !Ref IncomingEmailRecipient
+
+  SESStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - IAMStack
+      - LambdaStack
+    Properties:
+      TemplateURL: ./ses/ses.yml
+
+Outputs:
+  TemperatureApiEndpoint:
+    Value: !GetAtt ApiGatewayStack.Outputs.TemperatureApiEndpoint
+  SMSApiEndpoint:
+    Value: !GetAtt ApiGatewayStack.Outputs.SMSApiEndpoint
+  IncomingEmailRuleSetName:
+    Value: !GetAtt ApiGatewayStack.Outputs.IncomingEmailRuleSetName

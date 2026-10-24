@@ -1,24 +1,55 @@
-Resources:
-  CurrentTempRole:
-    Type: 'AWS:IAM:Role'
-    Properties:
-      Description: Execution role for the currentTemp function
-      ManagedPolicyArns:
-           - "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess"
-           - "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
-      MaxSessionDuration: 3600
-      Policies: 
-        - PolicyDocument: 
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: "logs:CreateLogGroup"
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:*"
-              - Effect: Allow
-                Action: 
-                  - "logs:CreateLogStream"
-                  - "logs:PutLogEvents"
-                Resource: !Sub 
-                  - "arn:aws:logs:${AWS::Region}:${AWS:AccountId}:log-group:/aws/lambda/${Name}"
-                  - Name: !Ref CurrentTempFunction
-      RoleName: currentTempRole
+CurrentTempRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: currentTempRole
+    Description: Execution role for the currentTemp function
+    MaxSessionDuration: 3600
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+    Policies:
+      - PolicyName: currentTempLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'logs:CreateLogGroup'
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/currentTemp:*'
+      - PolicyName: readTempHumidity
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:GetItem'
+                - 'dynamodb:Query'
+              Resource: !Ref TempHumidityTableArn
+      - PolicyName: writeOutbox
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: 'dynamodb:PutItem'
+              Resource: !Ref OutboxTableArn
+      - PolicyName: consumeInboxStream
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:DescribeStream'
+                - 'dynamodb:GetRecords'
+                - 'dynamodb:GetShardIterator'
+              Resource: !Ref InboxTableStreamArn
+            - Effect: Allow
+              Action: 'dynamodb:ListStreams'
+              Resource: '*'

@@ -1,23 +1,20 @@
-Resources:
-  TempDataTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      AttributeDefinitions:
+TempDataTable:
+TempHumidityTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: temp_data
+    AttributeDefinitions:
       - AttributeName: device_id
         AttributeType: S
       - AttributeName: published_at
         AttributeType: S
-      DeletionProtectionEnabled: false
-      KeySchema:
+    KeySchema:
       - AttributeName: device_id
         KeyType: HASH
       - AttributeName: published_at
         KeyType: RANGE
-      ProvisionedThroughput:
-        ReadCapacityUnits: 1
-        WriteCapacityUnits: 1
-      TableName: temp_data
-Outputs:
-  TempDataTableARN:
-    Description: "ARN for temp_data table"
-    Value: !GetAtt TempDataTable.Arn
+    BillingMode: PROVISIONED
+    ProvisionedThroughput:
+      ReadCapacityUnits: 1
+      WriteCapacityUnits: 1
+    DeletionProtectionEnabled: false
